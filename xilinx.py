@@ -55,6 +55,7 @@ class Series7(Module):
 
 def build_bscan_spi(plat, Top):
     platform = getattr(plat, "Platform")()
+    platform.bitgen_opt += " -g compress"
     name = "bscan_spi_{}".format(platform.device)
     top = Top(platform)
     platform.build_cmdline(top, build_name=name)

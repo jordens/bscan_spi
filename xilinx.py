@@ -34,6 +34,7 @@ class Series7(Module):
             spi4.dq[0].eq(spi.mosi),
             spi.miso.eq(spi4.dq[1]),
             spi4.cs_n.eq(spi.cs_n),
+            # spi.clk == usrcclko == bscan.drck
         ]
         self.submodules.bscan2spi = BscanSpi(bscan, spi)
         self.specials += Instance(

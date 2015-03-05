@@ -16,18 +16,29 @@ bscan_layout = [
 
 
 class BscanSpi(Module):
-    magic = 0x59a6
+    def __init__(self, bscan, spi, magic=0x59a659a6, tdi_len=48,
+                 tdo_len=1 << 14, tdo_sr=False):
+        """
+        fpgaprog and papilio-loader need::
+            magic=0x59a6, tdi_len=32, tdo_len=8, tdo_sr=True
+        xc3sprog needs::
+            magic=0x59a659a6, tdi_len=48, tdo_len=1 << 14, tdo_sr=False
+            # IMHO xc3sprog requiring this is a design error and bug
+        Basically none of this is needed. SPI could be hooked up to JTAG
+        drectly. cs would be logic, at most one short shift register is needed
+        to restore convenient 8-bit alignment.
+        """
+        self.active = active = Signal()
 
-    def __init__(self, bscan, spi):
+        ##
+
         self.clock_domains.cd_rise = ClockDomain()
         self.clock_domains.cd_fall = ClockDomain()
 
         rst = Signal()
-        active = Signal()
         start = Signal()
         stop = Signal()
-        tdi = Signal(32)
-        tdo = Signal(8)
+        tdi = Signal(tdi_len)
         len = Signal(16)
 
         self.comb += [
@@ -40,11 +51,10 @@ class BscanSpi(Module):
             spi.cs_n.eq(~(bscan.sel & start & ~stop)),
             spi.clk.eq(bscan.drck),
             spi.mosi.eq(bscan.tdi),
-            bscan.tdo.eq(tdo[-1]),
         ]
         self.sync.fall += [
             If(~active,
-                If(tdi[-16:] == self.magic,
+                If(tdi[16:] == magic,
                     active.eq(1),
                     len.eq(tdi[:16]),
                     start.eq(tdi[:16] > 0),
@@ -56,8 +66,30 @@ class BscanSpi(Module):
         ]
         self.sync.rise += [
             tdi.eq(Cat(bscan.tdi, tdi)),
-            tdo.eq(Cat(spi.miso, tdo)),
             If(start,
                 stop.eq(len == 0),
             ),
         ]
+        if tdo_sr:
+            if tdo_len:
+                tdo = Signal(tdo_len)
+                self.comb += bscan.tdo.eq(tdo[-1])
+                self.sync.rise += tdo.eq(Cat(spi.miso, tdo))
+            else:
+                self.comb += bscan.tdo.eq(spi.miso)
+        else:
+            self.specials.tdo = Memory(1, tdo_len)
+            tdo_w = self.tdo.get_port(write_capable=True, clock_domain="rise")
+            tdo_r = self.tdo.get_port(write_capable=False, clock_domain="fall")
+            self.specials += tdo_w, tdo_r
+            self.comb += [
+                bscan.tdo.eq(tdo_r.dat_r),
+                tdo_w.dat_w.eq(spi.miso),
+            ]
+            self.sync.rise += [
+                tdo_w.we.eq(~spi.cs_n),
+                If(tdo_w.we,
+                    tdo_w.adr.eq(tdo_w.adr + 1),
+                ),
+                tdo_r.adr.eq(tdo_r.adr + 1),
+            ]

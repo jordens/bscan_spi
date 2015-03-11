@@ -91,5 +91,6 @@ class BscanSpi(Module):
                 If(tdo_w.we,
                     tdo_w.adr.eq(tdo_w.adr + 1),
                 ),
-                tdo_r.adr.eq(tdo_r.adr + 1),
             ]
+            tdo_r.adr.reset = 1
+            self.sync.fall += tdo_r.adr.eq(tdo_r.adr + 1)

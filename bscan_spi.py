@@ -30,8 +30,8 @@ class BscanSpi(Module):
         to restore convenient 8-bit alignment.
 
         Some SPI/JTAG ground rules:
-            * sampling is to be done on rising edges
-            * shifting/setting/latching is to be done on falling edges
+            * input is sampled on rising clock edges
+            * output is changed on falling clock edges
             * this is true for spi in cpha,cpol=0,0 or 1,1 and jtag
               and both master and slave
             * combinatorials can be forwarded between interfaces

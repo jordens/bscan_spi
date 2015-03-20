@@ -2,7 +2,7 @@
 # Robert Jordens <jordens@gmail.com> 2015
 
 from migen.fhdl.std import *
-from migen.genlib.record import *
+from migen.genlib.record import Record
 from mibuild.generic_platform import ConstraintError
 
 from bscan_spi import bscan_layout, BscanSpi
@@ -19,7 +19,7 @@ class Spartan6(Module):
             o_RESET=bscan.rst, o_SEL=bscan.sel, o_UPDATE=bscan.update,
             o_TDI=bscan.tdi, i_TDO=bscan.tdo)
         try:
-            self.comb += platform.request("user_led").eq(~spi.cs_n)
+            self.comb += platform.request("user_led").eq(self.bscan2spi.active)
             self.comb += platform.request("user_led").eq(1)
         except ConstraintError:
             pass
@@ -47,15 +47,13 @@ class Series7(Module):
             i_PACK=1, i_USRCCLKO=bscan.drck, i_USRCCLKTS=0, i_USRDONEO=1,
             i_USRDONETS=1)
         try:
-            self.comb += platform.request("user_led").eq(~spi.cs_n)
+            self.comb += platform.request("user_led").eq(self.bscan2spi.active)
             self.comb += platform.request("user_led").eq(1)
         except ConstraintError:
             pass
 
 
-def build_bscan_spi(plat, Top):
-    platform = getattr(plat, "Platform")()
-    platform.bitgen_opt += " -g compress"
+def build_bscan_spi(platform, Top):
     name = "bscan_spi_{}".format(platform.device)
     top = Top(platform)
     platform.build_cmdline(top, build_name=name)
@@ -64,6 +62,14 @@ def build_bscan_spi(plat, Top):
 if __name__ == "__main__":
     from mibuild.platforms import pipistrello, papilio_pro, kc705
 
-    build_bscan_spi(pipistrello, Spartan6)
-    #build_bscan_spi(papilio_pro, Spartan6)
-    #build_bscan_spi(kc705, Series7)
+    p = pipistrello.Platform()
+    p.toolchain.bitgen_opt += " -g compress"
+    build_bscan_spi(p, Spartan6)
+
+    p = papilio_pro.Platform()
+    p.toolchain.bitgen_opt += " -g compress"
+    build_bscan_spi(p, Spartan6)
+
+    p = kc705.Platform(toolchain="ise")
+    p.toolchain.bitgen_opt += " -g compress"
+    build_bscan_spi(p, Series7)

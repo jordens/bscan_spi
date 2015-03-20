@@ -19,7 +19,7 @@ class Spartan6(Module):
             o_RESET=bscan.rst, o_SEL=bscan.sel, o_UPDATE=bscan.update,
             o_TDI=bscan.tdi, i_TDO=bscan.tdo)
         try:
-            self.comb += platform.request("user_led").eq(self.bscan2spi.active)
+            self.comb += platform.request("user_led").eq(~spi.cs_n)
             self.comb += platform.request("user_led").eq(1)
         except ConstraintError:
             pass
@@ -47,7 +47,7 @@ class Series7(Module):
             i_PACK=1, i_USRCCLKO=bscan.drck, i_USRCCLKTS=0, i_USRDONEO=1,
             i_USRDONETS=1)
         try:
-            self.comb += platform.request("user_led").eq(self.bscan2spi.active)
+            self.comb += platform.request("user_led").eq(~spi.cs_n)
             self.comb += platform.request("user_led").eq(1)
         except ConstraintError:
             pass

@@ -23,6 +23,15 @@ from mibuild.generic_platform import *
 from mibuild.xilinx import XilinxPlatform
 
 
+"""
+This migen script produces proxy bitstreams to allow programming SPI flashes
+behind FPGAs. JTAG signalling is connected directly to SPI signalling. CS_N is
+driven when the JTAG IR contains the USER1 instruction.
+
+https://github.com/m-labs/migen
+"""
+
+
 bscan_layout = [
     ("tdi", 1),
     ("tdo", 1),

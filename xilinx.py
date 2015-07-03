@@ -12,11 +12,6 @@
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the
-#  Free Software Foundation, Inc.,
-#  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-#
 
 from migen.fhdl.std import *
 from mibuild.generic_platform import *
@@ -30,15 +25,6 @@ driven when the JTAG IR contains the USER1 instruction.
 
 https://github.com/m-labs/migen
 """
-
-
-bscan_layout = [
-    ("tdi", 1),
-    ("tdo", 1),
-    ("tck", 1),
-    ("sel", 1),
-    ("shift", 1),
-]
 
 
 class Series6(Module):

@@ -32,10 +32,10 @@ class Series6(Module):
         self.clock_domains.dummy = ClockDomain()
         spi = platform.request("spiflash")
         shift = Signal()
+        self.comb += spi.cs_n.eq(~shift)
         self.specials += Instance("BSCAN_SPARTAN6", p_JTAG_CHAIN=1,
                                   o_TCK=spi.clk, o_SHIFT=shift,
                                   o_TDI=spi.mosi, i_TDO=spi.miso)
-        self.comb += spi.cs_n.eq(~shift)
         try:
             self.comb += platform.request("user_led", 0).eq(1)
             self.comb += platform.request("user_led", 1).eq(shift)
@@ -48,11 +48,11 @@ class Series7(Module):
         self.clock_domains.dummy = ClockDomain()
         spi = platform.request("spiflash")
         shift = Signal()
-        clk = Signal()
         self.comb += spi.cs_n.eq(~shift)
+        clk = Signal()
         self.specials += Instance("BSCANE2", p_JTAG_CHAIN=1,
                                   o_SHIFT=shift, o_TCK=clk,
-                                  io_TDI=spi.mosi, io_TDO=spi.miso)
+                                  o_TDI=spi.mosi, i_TDO=spi.miso)
         self.specials += Instance("STARTUPE2", i_CLK=0, i_GSR=0, i_GTS=0,
                                   i_KEYCLEARB=0, i_PACK=1, i_USRCCLKO=clk,
                                   i_USRCCLKTS=0, i_USRDONEO=1, i_USRDONETS=1)
@@ -67,7 +67,7 @@ pinouts = {
     #                    cs_n, clk, mosi, miso
     "xc6slx45-csg324-2": (["V3", "R15", "T13", "R13"], "LVTTL", Series6),
     "xc6slx9-tqg144-2": (["P38", "P70", "P64", "P65"], "LVCMOS33", Series6),
-    "xc7k325t-ffg900-2": (["U19", None, "R25", "R20"], "LVCMOS25", Series7),
+    "xc7k325t-ffg900-2": (["U19", None, "P24", "R25"], "LVCMOS25", Series7),
 }
 
 

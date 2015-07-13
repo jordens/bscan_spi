@@ -21,21 +21,27 @@ from mibuild.xilinx import XilinxPlatform
 """
 This migen script produces proxy bitstreams to allow programming SPI flashes
 behind FPGAs. JTAG signalling is connected directly to SPI signalling. CS_N is
-driven when the JTAG IR contains the USER1 instruction.
+asserted when the JTAG IR contains the USER1 instruction and the state is
+SHIFT-DR.
 
 https://github.com/m-labs/migen
 """
 
 
-class Series6(Module):
+class Spartan6(Module):
     def __init__(self, platform):
-        self.clock_domains.dummy = ClockDomain()
+        self.clock_domains.cd_jtag = ClockDomain(reset_less=True)
         spi = platform.request("spiflash")
         shift = Signal()
-        self.comb += spi.cs_n.eq(~shift)
+        tdo = Signal()
+        rst = Signal()
+        self.comb += self.cd_jtag.clk.eq(spi.clk), spi.cs_n.eq(~shift | rst)
+        # xilinx bscan cells sample tdo on falling tck and forward.
+        # requires on rising tck from flash and leads to one cycle of latency
+        self.sync.jtag += tdo.eq(spi.miso)
         self.specials += Instance("BSCAN_SPARTAN6", p_JTAG_CHAIN=1,
-                                  o_TCK=spi.clk, o_SHIFT=shift,
-                                  o_TDI=spi.mosi, i_TDO=spi.miso)
+                                  o_TCK=spi.clk, o_SHIFT=shift, o_RESET=rst,
+                                  o_TDI=spi.mosi, i_TDO=tdo)
         try:
             self.comb += platform.request("user_led", 0).eq(1)
             self.comb += platform.request("user_led", 1).eq(shift)
@@ -45,14 +51,19 @@ class Series6(Module):
 
 class Series7(Module):
     def __init__(self, platform):
-        self.clock_domains.dummy = ClockDomain()
+        self.clock_domains.cd_jtag = ClockDomain(reset_less=True)
         spi = platform.request("spiflash")
-        shift = Signal()
-        self.comb += spi.cs_n.eq(~shift)
         clk = Signal()
+        shift = Signal()
+        tdo = Signal()
+        rst = Signal()
+        self.comb += self.cd_jtag.clk.eq(clk), spi.cs_n.eq(~shift | rst)
+        # xilinx bscan cells sample tdo on falling tck and forward.
+        # requires on rising tck from flash and leads to one cycle of latency
+        self.sync.jtag += tdo.eq(spi.miso)
         self.specials += Instance("BSCANE2", p_JTAG_CHAIN=1,
-                                  o_SHIFT=shift, o_TCK=clk,
-                                  o_TDI=spi.mosi, i_TDO=spi.miso)
+                                  o_SHIFT=shift, o_TCK=clk, o_RESET=rst,
+                                  o_TDI=spi.mosi, i_TDO=tdo)
         self.specials += Instance("STARTUPE2", i_CLK=0, i_GSR=0, i_GTS=0,
                                   i_KEYCLEARB=0, i_PACK=1, i_USRCCLKO=clk,
                                   i_USRCCLKTS=0, i_USRDONEO=1, i_USRDONETS=1)
@@ -64,22 +75,28 @@ class Series7(Module):
 
 
 pinouts = {
-    #                    cs_n, clk, mosi, miso
-    "xc6slx45-csg324-2": (["V3", "R15", "T13", "R13"], "LVTTL", Series6),
-    "xc6slx9-tqg144-2": (["P38", "P70", "P64", "P65"], "LVCMOS33", Series6),
-    "xc7k325t-ffg900-2": (["U19", None, "P24", "R25"], "LVCMOS25", Series7),
+    #                    cs_n, clk, mosi, miso, *pullups
+    "xc6slx45-csg324-2": (["V3", "R15", "T13", "R13", "T14", "V14"],
+                          "LVCMOS33", Spartan6),
+    "xc6slx9-tqg144-2": (["P38", "P70", "P64", "P65", "P62", "P61"],
+                         "LVCMOS33", Spartan6),
+    "xc7k325t-ffg900-2": (["U19", None, "P24", "R25", "R20", "R21"],
+                          "LVCMOS25", Series7),
 }
 
 
 def make_platform(name):
-    (cs_n, clk, mosi, miso), std, cls = pinouts[name]
+    pins, std, cls = pinouts[name]
+    cs_n, clk, mosi, miso = pins[:4]
     io = ["spiflash", 0,
-          Subsignal("cs_n", Pins(cs_n), Misc("PULLUP")),
+          Subsignal("cs_n", Pins(cs_n)),
           Subsignal("mosi", Pins(mosi)),
-          Subsignal("miso", Pins(miso), Misc("PULLDOWN")),
+          Subsignal("miso", Pins(miso), Misc("PULLUP")),
           IOStandard(std)]
     if clk:
         io.append(Subsignal("clk", Pins(clk)))
+    for i, p in enumerate(pins[4:]):
+        io.append(Subsignal("pullup{}".format(i), Pins(p), Misc("PULLUP")))
 
     class Platform(XilinxPlatform):
         def __init__(self):
@@ -90,9 +107,6 @@ def make_platform(name):
 
 
 if __name__ == "__main__":
-    #from mibuild.platforms import pipistrello, papilio_pro, kc705
-    #build_bscan_spi(pipistrello.Platform(), Spartan6)
-
     for name in sorted(pinouts):
         P, C = make_platform(name)
         p = P()

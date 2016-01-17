@@ -1,7 +1,6 @@
 # Robert Jordens <jordens@gmail.com> 2015
 
-from migen.fhdl.std import *
-from migen.genlib.record import *
+from migen import *
 
 
 bscan_layout = [

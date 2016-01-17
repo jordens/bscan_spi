@@ -56,7 +56,7 @@ class Series7(Module):
 def build_bscan_spi(platform, Top):
     name = "bscan_spi_{}".format(platform.device)
     top = Top(platform)
-    platform.build_cmdline(top, build_name=name)
+    platform.build(top, build_name=name)
 
 
 if __name__ == "__main__":

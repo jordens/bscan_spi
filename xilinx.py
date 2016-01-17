@@ -1,11 +1,27 @@
 #!/usr/bin/python3
 # Robert Jordens <jordens@gmail.com> 2015
 
-from migen.fhdl.std import *
-from migen.genlib.record import Record
-from mibuild.generic_platform import ConstraintError
+from migen import *
+from migen.build.generic_platform import ConstraintError
 
 from bscan_spi import bscan_layout, BscanSpi
+
+class Spartan3A(Module):
+    def __init__(self, platform):
+        bscan = Record(bscan_layout)
+        spi = platform.request("spiflash")
+        dummy = Constant(0) # Both inputs must be used, or bitgen will complain.
+        self.submodules.bscan2spi = BscanSpi(bscan, spi)
+        self.specials += Instance(
+            "BSCAN_SPARTAN3A",
+            o_CAPTURE=bscan.capture, o_DRCK1=bscan.drck,
+            o_RESET=bscan.rst, o_SEL1=bscan.sel, o_UPDATE=bscan.update,
+            o_TDI=bscan.tdi, i_TDO1=bscan.tdo, i_TDO2=dummy)
+        try:
+            self.comb += platform.request("user_led").eq(~spi.cs_n)
+            self.comb += platform.request("user_led").eq(1)
+        except ConstraintError:
+            pass
 
 
 class Spartan6(Module):
@@ -60,7 +76,7 @@ def build_bscan_spi(platform, Top):
 
 
 if __name__ == "__main__":
-    from mibuild.platforms import pipistrello, papilio_pro, kc705
+    from migen.build.platforms import pipistrello, papilio_pro, kc705, mercury
 
     p = pipistrello.Platform()
     p.toolchain.bitgen_opt += " -g compress"
@@ -73,3 +89,7 @@ if __name__ == "__main__":
     p = kc705.Platform(toolchain="ise")
     p.toolchain.bitgen_opt += " -g compress"
     build_bscan_spi(p, Series7)
+
+    p = mercury.Platform()
+    p.toolchain.bitgen_opt += " -g compress"
+    build_bscan_spi(p, Spartan3A)
